@@ -1,0 +1,20 @@
+{
+  "fare": {
+    "discount": 20,
+    "updated": "LTFRB matrix effective Sept 28, 2026",
+    "trad": {
+      "base": 14,
+      "baseKm": 4,
+      "perKm": 2
+    },
+    "modern": {
+      "base": 17,
+      "baseKm": 4,
+      "perKm": 2.4
+    }
+  },
+  "notices": [],
+  "routes": [],
+  "hidden": [],
+  "coords": {}
+}

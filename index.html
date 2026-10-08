@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Find jeepney and UV Express routes, fares, and visual landmark guides across Pampanga. Real-time data from the community masterlist.">
+  <title>Pampanga Transit Directory — Routes, Fares &amp; Landmarks</title>
+
+  <!-- PapaParse for CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" defer></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- ═══════ Header ═══════ -->
+  <header class="header">
+    <div class="header-brand">
+      <div class="header-logo">PT</div>
+      <div>
+        <div class="header-title">Pampanga Transit</div>
+        <div class="header-subtitle">Route Directory</div>
+      </div>
+    </div>
+
+    <button id="sync-btn" class="sync-btn" onclick="fetchBackendData()">
+      <span id="sync-dot" class="sync-dot"></span>
+      <span class="sync-icon">↻</span>
+      <span id="sync-label">Sync</span>
+    </button>
+  </header>
+
+  <!-- ═══════ TAB 1 — Directory & Fares ═══════ -->
+  <section id="tab-find" class="tab-content active">
+
+    <!-- Origin / Destination Selector -->
+    <div class="card selector-card">
+      <div class="selector-row">
+        <div class="selector-field">
+          <div class="selector-dot origin"></div>
+          <div class="selector-field-inner">
+            <label class="form-label" for="start-select">Origin Station</label>
+            <select id="start-select" onchange="onOriginChange()">
+              <option value="">Select origin…</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="swap-btn" onclick="swapOriginDest()" title="Swap origin and destination">⇄</button>
+
+        <div class="selector-field">
+          <div class="selector-dot dest"></div>
+          <div class="selector-field-inner">
+            <label class="form-label" for="dest-select">Destination Landmark</label>
+            <select id="dest-select" onchange="onDestinationChange()">
+              <option value="">Select destination…</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results Panel (hidden until both selected) -->
+    <div id="results-panel" class="results-panel" style="display:none;">
+
+      <!-- Route Distance & Duration Bar -->
+      <div class="distance-bar" id="distance-bar">
+        <div class="distance-bar-inner">
+          <div class="distance-item">
+            <span class="distance-icon">—</span>
+            <div>
+              <div class="distance-value" id="dist-value">—</div>
+              <div class="distance-label">Est. Distance</div>
+            </div>
+          </div>
+          <div class="distance-divider"></div>
+          <div class="distance-item">
+            <span class="distance-icon">○</span>
+            <div>
+              <div class="distance-value" id="time-value">—</div>
+              <div class="distance-label">Est. Travel Time</div>
+            </div>
+          </div>
+          <div class="distance-divider"></div>
+          <div class="distance-item">
+            <span class="distance-icon">≡</span>
+            <div>
+              <div class="distance-value" id="route-count-value">0</div>
+              <div class="distance-label">Available Routes</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fare Comparison Cards -->
+      <div class="section-title">Fare Comparison</div>
+      <div class="fare-comparison">
+        <div class="fare-card">
+          <div class="fare-card-header">
+            <span class="fare-card-icon fare-icon-regular">F</span>
+            <span class="fare-card-title">Standard Adult Fare</span>
+          </div>
+          <div class="fare-card-amount" id="fare-regular">₱0.00</div>
+          <div class="fare-card-note">Regular commuter fare based on LTFRB-approved rates.</div>
+          <div class="fare-card-breakdown" id="fare-regular-breakdown"></div>
+        </div>
+        <div class="fare-card fare-card-student">
+          <div class="fare-card-header">
+            <span class="fare-card-icon fare-icon-student">S</span>
+            <span class="fare-card-title">Verified Student Fare</span>
+          </div>
+          <div class="fare-card-amount green" id="fare-student">₱0.00</div>
+          <div class="fare-card-note">Applies upon presenting a valid PamSU Student ID before boarding.</div>
+          <div class="fare-card-breakdown" id="fare-student-breakdown"></div>
+        </div>
+      </div>
+
+      <!-- Map & Landmark Side-by-Side on wide, stacked on mobile -->
+      <div class="section-title">Navigation & Landmark</div>
+      <div class="map-landmark-grid">
+        <!-- Map -->
+        <div class="detail-card">
+          <div class="detail-card-header">
+            <div class="detail-icon">M</div>
+            <div class="detail-header-text">
+              <h3>Transit Navigation</h3>
+              <p id="active-route-name">Select a route</p>
+            </div>
+          </div>
+          <div class="map-container">
+            <iframe id="gmap-frame"
+                    src="https://maps.google.com/maps?q=San%20Fernando%20Pampanga&t=&z=12&ie=UTF8&iwloc=&output=embed"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    allowfullscreen></iframe>
+          </div>
+          <div class="map-actions">
+            <button type="button" id="expand-map-btn" class="map-action-btn primary" onclick="openRouteMapModal()">
+              <span>⛶</span> Expand Route
+            </button>
+            <a id="open-map-link" class="map-action-btn secondary" href="#" target="_blank" rel="noopener" style="display:none;">
+              <span>↗</span> Google Maps
+            </a>
+          </div>
+        </div>
+
+        <!-- Landmark -->
+        <div class="detail-card landmark-card-wrap">
+          <div class="landmark-section" style="overflow:hidden;">
+            <img id="landmark-image"
+                 class="landmark-img"
+                 alt="Destination Landmark"
+                 onerror="handleImageError(this)">
+            <div class="landmark-overlay">
+              <span class="landmark-tag">Destination Highlight</span>
+              <div id="landmark-name" class="landmark-name">Destination Landmark</div>
+              <div id="landmark-desc" class="landmark-desc">Select a route to view drop-off cue.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Journey Itinerary -->
+      <div class="section-title">Journey Itinerary</div>
+      <div class="itinerary-card" id="itinerary-card">
+        <div class="itinerary-header">
+          <span>Live Journey Steps</span>
+          <span class="itinerary-total" id="itinerary-total"></span>
+        </div>
+        <div class="itinerary-steps" id="itinerary-steps">
+          <!-- Filled dynamically -->
+        </div>
+      </div>
+
+      <!-- Matching Rides List -->
+      <div class="section-title" id="matching-title">Matching Rides</div>
+      <div id="matching-rides-list"></div>
+
+    </div>
+
+    <!-- Empty state shown when no selection made -->
+    <div id="empty-prompt" class="empty-prompt">
+      <div class="empty-prompt-icon" id="empty-prompt-icon">⟵ ⟶</div>
+      <h3 id="empty-prompt-title">Select origin & destination</h3>
+      <p id="empty-prompt-desc">Pick both points above to see fares, distance, drop-off guides, and matching rides.</p>
+    </div>
+
+  </section>
+
+  <!-- ═══════ TAB 2 — All Routes ═══════ -->
+  <section id="tab-routes" class="tab-content">
+    <div class="card">
+      <h2 class="card-title">All Routes</h2>
+      <p class="card-desc">Tap any route to auto-fill the search and see full trip details.</p>
+
+      <div class="form-group">
+        <input type="text" id="search-input" placeholder="Search by town, terminal, landmark…" oninput="searchAllRoutes()">
+      </div>
+    </div>
+
+    <div id="all-routes-list"></div>
+  </section>
+
+  <!-- ═══════ TAB 3 — Travel Guide ═══════ -->
+  <section id="tab-guide" class="tab-content">
+    <div class="card" style="margin-bottom: 20px;">
+      <h2 class="card-title">Travel Guide</h2>
+      <p class="card-desc">Tips and reminders for a smoother commute across Pampanga.</p>
+    </div>
+
+    <div class="guide-list">
+      <div class="guide-box orange">
+        <div class="guide-icon">1</div>
+        <div class="guide-title">Visual Landmark Guidance</div>
+        <p class="guide-text">Verify drop-off landmarks in the visual cue section before your stop. Tell the driver the landmark name or show the photo when alighting.</p>
+      </div>
+
+      <div class="guide-box green">
+        <div class="guide-icon">2</div>
+        <div class="guide-title">Keep Your Fare Ready</div>
+        <p class="guide-text">Have your PamSU student ID ready to present before handing over the discounted fare. Exact change is always appreciated.</p>
+      </div>
+
+      <div class="guide-box blue">
+        <div class="guide-icon">3</div>
+        <div class="guide-title">Peak Hour Advisory</div>
+        <p class="guide-text">Routes fill up fast from 6–8 AM and 4–6 PM. Arrive at terminals 15 minutes early for a seat during rush hours.</p>
+      </div>
+
+      <div class="guide-box purple">
+        <div class="guide-icon">4</div>
+        <div class="guide-title">Stay Updated</div>
+        <p class="guide-text">Tap "Sync" in the header anytime to pull the latest routes and fares from the community masterlist sheet.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ Bottom Navigation ═══════ -->
+  <nav class="bottom-nav">
+    <button id="nav-btn-find" class="nav-item active" onclick="switchTab('tab-find', this)">
+      <span class="nav-icon">⊞</span>
+      <span>Directory</span>
+    </button>
+    <button id="nav-btn-routes" class="nav-item" onclick="switchTab('tab-routes', this)">
+      <span class="nav-icon">≡</span>
+      <span>All Routes</span>
+    </button>
+    <button id="nav-btn-guide" class="nav-item" onclick="switchTab('tab-guide', this)">
+      <span class="nav-icon">?</span>
+      <span>Guide</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- ═══════ Route Map Modal (Option A) ═══════ -->
+<div id="route-map-modal" class="modal-backdrop" style="display:none;" onclick="closeRouteMapModal(event)">
+  <div class="modal-dialog modal-dialog-lg" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <span class="modal-tag">Transit Navigation</span>
+        <h3 id="modal-route-title">Origin → Destination</h3>
+      </div>
+      <button type="button" class="modal-close-btn modal-close-action" data-action="close" onclick="closeRouteMapModal(event)" title="Close modal (Esc)">✕</button>
+    </div>
+
+    <div class="modal-route-meta">
+      <div class="modal-meta-item">
+        <span class="modal-meta-label">Est. Distance:</span>
+        <span class="modal-meta-val" id="modal-dist-val">—</span>
+      </div>
+      <div class="modal-meta-divider">·</div>
+      <div class="modal-meta-item">
+        <span class="modal-meta-label">Est. Travel Time:</span>
+        <span class="modal-meta-val" id="modal-time-val">—</span>
+      </div>
+    </div>
+
+    <div class="modal-map-container">
+      <iframe id="modal-gmap-frame"
+              src="about:blank"
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"
+              allowfullscreen></iframe>
+    </div>
+
+    <div class="modal-footer">
+      <div class="modal-footer-info">
+        <span class="modal-footer-dot"></span>
+        <span id="modal-landmark-hint">Alight at landmark drop-off cue</span>
+      </div>
+      <div class="modal-footer-actions">
+        <a id="modal-open-gmaps" class="map-action-btn primary" href="#" target="_blank" rel="noopener">Open in Google Maps App ↗</a>
+        <button type="button" class="map-action-btn secondary modal-close-action" data-action="close" onclick="closeRouteMapModal(event)">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Application logic -->
+<script src="app.js"></script>
+<script src="config.js"></script>
+<script src="enhancements.js"></script>
+
+</body>
+</html>
