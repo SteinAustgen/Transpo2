@@ -10,7 +10,7 @@ const LS = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
 };
 // Set to a Google Apps Script / Firebase URL so commuter reports reach a shared backend.
-const REPORT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxCTj-HP1xG4xb6MO88iDKpY7URlaviocOwvdNTQ0lyo-2lU2VeJITaaAk_BnTyfPnH/exec';
+const REPORT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwb-C2cjO_8ERC37xaFxoWHdpBQ6MMmrUnnQpzY-2jZGhY61ldcHpGr7lo_4BL0cCkq/exec';
 
 /* ── Data layer: published site-data.json, overridden by the admin's local draft ── */
 const DEFAULTS = {
