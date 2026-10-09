@@ -19,7 +19,7 @@
   <!-- ═══════ Header ═══════ -->
   <header class="header">
     <div class="header-brand">
-      <div class="header-logo"> <img src="parolmai.gif" alt="Pampanga Jeep Directory Logo"> </div>
+      <div class="header-logo"><img src="parolmai.gif" alt="Pampanga Jeep Directory Logo" width="36" height="36"></div>
       <div>
         <div class="header-title">Pampanga Jeep Directory</div>
         <div class="header-subtitle">Route Directory</div>
@@ -305,5 +305,36 @@
 <script src="config.js"></script>
 <script src="enhancements.js"></script>
 
-</body>
-</html>
+<audio id="bgm" loop preload="auto" autoplay>
+  <source src="music.mp3" type="audio/mpeg">
+</audio>
+<button id="bgm-toggle" type="button" aria-label="Turn music off" title="Music on/off">🔊</button>
+
+<style>
+  #bgm-toggle{position:fixed;right:12px;bottom:84px;z-index:50;width:44px;height:44px;border-radius:50%;
+    border:1px solid var(--border-hover);background:var(--bg-card);color:var(--text-primary);font-size:1.2rem;cursor:pointer}
+</style>
+
+<script>
+(() => {
+  const a = document.getElementById('bgm'), btn = document.getElementById('bgm-toggle');
+  const gestures = ['pointerdown', 'touchend', 'click', 'keydown'];
+  a.volume = 0.4;                                            // 0 to 1
+  a.muted = localStorage.getItem('bgm-muted') === '1';       // remember a visitor's choice
+
+  const label = () => { btn.textContent = a.muted ? '🔇' : '🔊'; btn.setAttribute('aria-label', a.muted ? 'Turn music on' : 'Turn music off'); };
+  const unlock = (e) => { if (e.target !== btn) a.play().catch(() => {}); };   // retried on every tap until it works
+  const disarm = () => gestures.forEach((g) => removeEventListener(g, unlock, true));
+
+  a.addEventListener('playing', disarm);
+  a.play().catch(() => gestures.forEach((g) => addEventListener(g, unlock, true)));   // try instantly; if blocked, wait for the first tap
+
+  btn.onclick = () => {
+    if (a.paused) { a.muted = false; a.play().catch(() => {}); }
+    else a.muted = !a.muted;
+    localStorage.setItem('bgm-muted', a.muted ? '1' : '0');
+    label();
+  };
+  label();
+})();
+</script>
